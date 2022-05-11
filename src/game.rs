@@ -1,5 +1,5 @@
 pub mod game_base {
-    use std::fmt;
+    use std::{fmt, ops::AddAssign};
     
     const LOGO: &str = "     ____                            _     _____                     _     _     
     / ___|___  _ __  _ __   ___  ___| |_  |  ___|__  _   _ _ __     (_)___| |__  
@@ -109,10 +109,18 @@ pub mod game_base {
                 }
             } else {
                 game_board_string.push_str(format!(
-                    "\nTurn {:?}, \n{:?} to move.\n", 
+                    "\nTurn {:?},\n", 
                     self.current_turn, 
-                    self.current_player
+                    self.current_player,
                 ).as_str());
+                for (i, player) in self.players. {
+                    if player == self.current_player {
+                        let display = format!("[{:?}]", self.current_player).as_str();
+                    } else if player
+                    game_board_string.push_str(format!(
+                        ""
+                    ).as_str());
+                }
             }
 
             write!(f, "{}", game_board_string)
@@ -248,105 +256,49 @@ pub mod game_base {
         }
         println!("{}Welcome to Connect Four-ish! 
 We're gonna ask a couple questions to get started :)\n", LOGO);
+        let get_msg = |min: usize, max: usize| -> String { format!("\n(between {} and {}, please)\n", min, max) };
+        let err = |min: usize, max: usize| -> String { format!("\nBetween {} and {}, please.\n", min, max) };
 
         // get players
-        println!("How many players do you want?
-(anywhere between 1 and 4)\n");
-        let players = loop {
-            match super::console::get_integer_input() {
-                Ok(val) => {
-                    if val > 0 && val < 10 {
-                        break val;
-                    } else {
-                        println!("\nWhoops, between 1 and 9 please!\n");
-                        continue;
-                    }
-                }
-                Err(info) => {
-                    println!("{}", info); 
-                    continue;
-                }
-            }
-        };
+        let players = super::console::prompt_user(
+            String::from("How many players should there be?") + &msg_end(1, 4),
+            err(1, 4),
+            1,
+            4
+        );
                 
-        // get players
-        println!("How many human players will there be?
-(anywhere between 0 and {:?})\n", players);
-        let humans = loop {
-            match super::console::get_integer_input() {
-                Ok(val) => {
-                    if val > 0 && val < 10 {
-                        break val;
-                    } else {
-                        println!("\nWhoops, between 1 and {:?} please!\n", players);
-                        continue;
-                    }
-                }
-                Err(info) => {
-                    println!("{}", info); 
-                    continue;
-                }
-            }
-        };
+        // get humans
+        let humans = super::console::prompt_user(
+            String::from("How many humans should there be?") + &msg_end(1, 4), 
+            err(1, players),
+            1, 
+            players
+        );
 
         // get rows
-        println!("How many rows would you like for the board to have?
-(anywhere between 1 and 9)\n");
-        let rows = loop {
-            match super::console::get_integer_input() {
-                Ok(val) => {
-                    if val > 0 && val < 10 {
-                        break val;
-                    } else {
-                        println!("\nWhoops, between 1 and 9 please!\n");
-                        continue;
-                    }
-                }
-                Err(info) => {
-                    println!("{}", info); 
-                    continue;
-                }
-            }
-        };
+        let rows = super::console::prompt_user(
+            String::from("How many rows should the board have?") + &msg_end(1, 9), 
+            err(1, 9),
+            1, 
+            9
+        );
 
-        println!("How many columns would you like for the board to have?
-(anywhere between 1 and 9)\n");
-        let cols = loop {
-            match super::console::get_integer_input() {
-                Ok(val) => {
-                    if val > 0 && val < 10 {
-                        break val;
-                    } else {
-                        println!("\nWhoops, between 1 and 9 please!\n");
-                        continue;
-                    }
-                }
-                Err(info) => {
-                    println!("{}", info); 
-                    continue;
-                }
-            }
-        };
+        // get cols
+        let cols = super::console::prompt_user(
+            String::from("How many columns should the board have?") + &msg_end(1, 9), 
+            err(1, 9),
+            1, 
+            9
+        );
 
         // get sequence
-        println!("How long does a sequence have to be to win?
-(anywhere between 1 and {:?})\n", if rows >= cols { cols } else { rows });
-        let sequence = loop {
-            match super::console::get_integer_input() {
-                Ok(val) => {
-                    if val > 0 && val < 10 {
-                        break val;
-                    } else {
-                        println!("\nWhoops, between 1 and {:?} please!\n", if rows >= cols { cols } else { rows });
-                        continue;
-                    }
-                }
-                Err(info) => {
-                    println!("{}", info); 
-                    continue;
-                }
-            }
-        };
+        let seq_max = if rows >= cols { cols } else { rows };
+        let sequence = super::console::prompt_user(
+            String::from("How long should a winning sequence be?") + &msg_end(1, seq_max), 
+            err(1, seq_max),
+            1, 
+            seq_max
+        );
 
         if let Err(msg) = super::console::clear_console() {
             println!("{}", msg)
@@ -364,13 +316,7 @@ We're gonna ask a couple questions to get started :)\n", LOGO);
         loop {
 
             if loop {
-                let choice = match super::console::get_integer_input() {
-                    Ok(val) => val,
-                    Err(info) => {
-                        println!("{}", info); 
-                        continue;
-                    }
-                };
+                let choice = super::console::prompt_user("".to_string(), "".to_string(), 1, game_state.cols);
         
                 match game_state.place_token(choice) {
                     Ok(win) => {
@@ -407,20 +353,45 @@ pub mod console {
             }
         Err("Failed to clear screen. Sorry :(".to_string())
     }
-    // gets an integer from a user's input, within the specified range.
-    pub fn get_integer_input<'a>() -> Result<usize, String> {
+
+    // gets an integer from a user's input
+    fn get_integer_input<'a>() -> Result<usize, String> {
 
         let mut input = String::new();
 
         io::stdin().read_line(&mut input)
             .expect("Failed to read line");
 
-        let input = match input
+        match input
             .trim()
             .parse() {
                 Ok(num) => Ok(num),
                 Err(_) => Err("Please input a positive integer!".to_string()),
-        };
-        input
+        }
+    }
+
+    // prompts the user with given text, accepting a response within the specified range
+    pub fn prompt_user(msg: String, err: String, min: usize, max: usize) -> usize {
+        if !msg.is_empty() {
+            println!("{}", msg);
+        }
+        loop {
+            match get_integer_input() {
+                Ok(val) => {
+                    if val >= min && val <= max {
+                        break val;
+                    } else {
+                        if !err.is_empty() {
+                            println!("{}", err);
+                        }
+                        continue;
+                    }
+                }
+                Err(info) => {
+                    println!("{}", info); 
+                    continue;
+                }
+            }
+        }
     }
 }
